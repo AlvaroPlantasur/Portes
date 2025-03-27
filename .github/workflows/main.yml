@@ -1,0 +1,37 @@
+name: Ejecutar script y enviar archivo a Power Automate
+
+on:
+  schedule:
+    - cron: '0 * * * *'   # Se ejecuta cada hora (ajusta según tus necesidades)
+  workflow_dispatch:      # Permite ejecutar el workflow manualmente
+
+jobs:
+  run-and-send:
+    runs-on: ubuntu-latest
+    env:
+      DB_NAME: ${{ secrets.DB_NAME }}
+      DB_USER: ${{ secrets.DB_USER }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      EXCEL_FILE_PATH: ${{ secrets.EXCEL_FILE_PATH }}
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v2
+
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar script
+        run: python main.py
+
+      - name: Enviar archivo a Power Automate
+        run: |
+          curl -X POST "https://prod-120.westeurope.logic.azure.com:443/workflows/77fbcf15c8a643bbb3fd225993761713/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=j4g0ozXaCTIl3B-Zw6MI8JxdsBYoZsOrlrSB88KQwfs" \
+          -H "Content-Type: application/octet-stream" \
+          --data-binary "@${{ env.EXCEL_FILE_PATH }}"
