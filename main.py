@@ -1,8 +1,7 @@
 import os
 import psycopg2
-import pandas as pd
 from openpyxl import load_workbook, Workbook
-from openpyxl.styles import Font, PatternFill, Border, Alignment
+from openpyxl.styles import Font
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils import get_column_letter
 from datetime import datetime
@@ -11,13 +10,13 @@ import sys
 import copy
 
 def main():
-    # Obtener credenciales y ruta del archivo desde variables de entorno (configuradas en GitHub Secrets)
+    # Obtener credenciales y ruta del archivo desde variables de entorno
     db_name = os.environ.get('DB_NAME', 'semillas')
     db_user = os.environ.get('DB_USER', 'openerp')
     db_password = os.environ.get('DB_PASSWORD', '')
     db_host = os.environ.get('DB_HOST', '2.136.142.253')
     db_port = os.environ.get('DB_PORT', '5432')
-    file_path = os.environ.get('EXCEL_FILE_PATH', 'Portes.xlsx')
+    file_path = os.environ.get('EXCEL_FILE_PATH', 'Copìa_Portes.xlsx')
     
     db_params = {
         'dbname': db_name,
@@ -27,167 +26,103 @@ def main():
         'port': db_port
     }
     
-    # Calcular el rango de fechas dinámicamente: desde el primer día de hace dos meses hasta hoy
+    # Calcular rango de fechas:
+    # Desde el primer día del mes de hace dos meses hasta hoy.
     end_date = datetime.now()
     start_date = (end_date - relativedelta(months=2)).replace(day=1)
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # Consulta SQL usando la consulta que proporcionaste, con fechas dinámicas
+    # Consulta SQL actualizada usando las fechas dinámicas
     query = f"""
-    SELECT DISTINCT ON (sm.id)
-        sm.invoice_id AS "ID FACTURA",
-        sp.name AS "DESCRIPCIÓN",
-        sp.internal_number AS "CÓDIGO FACTURA",
-        sp.number AS "NÚMERO DEL ASIENTO",
-        to_char(sp.date_invoice, 'DD/MM/YYYY') AS "FECHA FACTURA",
-        sp.origin AS "DOCUMENTO ORIGEN",
-        pp.default_code AS "REFERENCIA PRODUCTO", 
-        pp.name AS "NOMBRE", 
-        COALESCE(pm.name, '') AS "MARCA",
-        s.name AS "SECCION", 
-        f.name AS "FAMILIA", 
-        sf.name AS "SUBFAMILIA",
+    SELECT 
+        ai.id AS "ID FACTURA",
+        ai.date_invoice AS "FECHA FACTURA",
+        ai.internal_number AS "CÓDIGO FACTURA",
+        ai.name AS "DESCRIPCION",
         rc.name AS "COMPAÑÍA",
         ssp.name AS "SEDE",
-        stp.date_preparado_app AS "FECHA PREPARADO APP",
-        (CASE WHEN stp.directo_cliente THEN 'Sí' ELSE 'No' END) AS "CAMIÓN DIRECTO",
-        stp.number_of_packages AS "NUMERO DE BULTOS",
-        stp.num_pales AS "NUMERO DE PALES",
-        sp.portes AS "PORTES",
-        sp.portes_cubiertos AS "PORTES CUBIERTOS",
-        rp.nombre_comercial AS "CLIENTE",
-        rp.vat AS "CIF CLIENTE",
-        (CASE 
-            WHEN rpa.prov_id IS NOT NULL THEN (SELECT name FROM res_country_provincia WHERE id = rpa.prov_id) 
-            ELSE rpa.state_id_2 
-        END) AS "PROVINCIA",
-        rpa.city AS "CIUDAD",
-        (CASE 
-            WHEN rpa.cautonoma_id IS NOT NULL THEN (SELECT UPPER(name) FROM res_country_ca WHERE id = rpa.cautonoma_id) 
-            ELSE '' 
-        END) AS "COMUNIDAD",
-        c.name AS "PAÍS",
-        to_char(sp.date_invoice, 'MM') AS "MES",
-        to_char(sp.date_invoice, 'DD') AS "DÍA",
-        spp.name AS "PREPARADOR",
-        sm.peso_arancel AS "PESO",
-        SUM(
-            CASE 
-                WHEN sp.type = 'out_invoice' THEN sm.cantidad_pedida
-                WHEN sp.type = 'out_refund' THEN -sm.cantidad_pedida
-            END
-        ) AS "UNIDADES VENTA",
-        SUM(
-            CASE 
-                WHEN sp.type = 'out_invoice' THEN sm.price_subtotal
-                WHEN sp.type = 'out_refund' THEN -sm.price_subtotal
-            END
-        ) AS "BASE VENTA TOTAL",
-        SUM(
-            CASE 
-                WHEN sp.type = 'out_invoice' THEN sm.margen
-                WHEN sp.type = 'out_refund' THEN -sm.margen
-            END
-        ) AS "MARGEN EUROS",
-        SUM(
-            CASE 
-                WHEN sp.type = 'out_invoice' THEN sm.cantidad_pedida * sm.cost_price_real
-                WHEN sp.type = 'out_refund' THEN -sm.cantidad_pedida * sm.cost_price_real
-            END
-        ) AS "COSTE VENTA TOTAL",
         'S-' || rp.id AS "ID BBSeeds",
-        (CASE 
-            WHEN rp.fiscal_position_texto = 'Recargo de Equivalencia' THEN 'Recargo de Equivalencia'
-            WHEN rp.fiscal_position_texto = 'Régimen Extracomunitario' THEN 'Régimen Extracomunitario'
-            WHEN rp.fiscal_position_texto = 'REGIMEN INTRACOMUNITARIO' THEN 'Régimen Intracomunitario'
-            WHEN rp.fiscal_position_texto = 'Régimen Intracomunitario' THEN 'Régimen Intracomunitario'
-            WHEN rp.fiscal_position_texto = 'REGIMEN NACIONAL' THEN 'Régimen Nacional'
-            ELSE rp.fiscal_position_texto
-        END) AS "Tipo Regimen",
-        (SUM(
-            CASE 
-                WHEN sp.type = 'out_invoice' THEN sm.price_subtotal
-                WHEN sp.type = 'out_refund' THEN -sm.price_subtotal
-            END
-        ) - 
-        SUM(
-            CASE 
-                WHEN sp.type = 'out_invoice' THEN sm.margen
-                WHEN sp.type = 'out_refund' THEN -sm.margen
-            END
-        )) AS "Coste Calculado"
-    FROM account_invoice_line sm
-    INNER JOIN account_invoice sp ON sp.id = sm.invoice_id
-    INNER JOIN product_product pp ON sm.product_id = pp.id
-    INNER JOIN res_partner_address rpa ON sp.address_invoice_id = rpa.id
-    INNER JOIN res_country c ON c.id = rpa.pais_id
-    LEFT JOIN stock_picking_invoice_rel spir ON spir.invoice_id = sp.id
-    LEFT JOIN stock_picking stp ON stp.id = spir.pick_id
-    LEFT JOIN stock_picking_preparador spp ON spp.id = stp.preparador
-    LEFT JOIN res_company rc ON rc.id = sp.company_id
-    LEFT JOIN res_partner rp ON rp.id = sp.partner_id
-    LEFT JOIN stock_sede_ps ssp ON ssp.id = sp.sede_id
-    LEFT JOIN product_category s ON s.id = pp.seccion
-    LEFT JOIN product_category f ON f.id = pp.familia
-    LEFT JOIN product_category sf ON sf.id = pp.subfamilia
-    LEFT JOIN product_marca pm ON pm.id = pp.marca
-    WHERE sp.type IN ('out_invoice', 'out_refund') 
-      AND sp.state IN ('open', 'paid') 
-      AND sp.journal_id != 11 
-      AND sp.anticipo = FALSE 
-      AND pp.default_code NOT LIKE 'XXX%' 
-      AND sp.obsolescencia = FALSE 
-      AND rp.nombre_comercial NOT LIKE '%PLANTASUR TRADING%' 
-      AND rp.nombre_comercial NOT LIKE '%PLANTADUCH%' 
-      AND sp.date_invoice BETWEEN '{start_date_str}' AND '{end_date_str}'
+        rp.nombre_comercial AS "CLIENTE",
+        rpa.city AS "CIUDAD",
+        CASE 
+            WHEN rpa.prov_id IS NOT NULL THEN 
+                (SELECT UPPER(name) FROM res_country_provincia WHERE id = rpa.prov_id)
+            ELSE 
+                UPPER(rpa.state_id_2)
+        END AS "PROVINCIA",
+        CASE 
+            WHEN rpa.cautonoma_id IS NOT NULL THEN 
+                (SELECT UPPER(name) FROM res_country_ca WHERE id = rpa.cautonoma_id)
+            ELSE 
+                ''
+        END AS "COMUNIDAD",
+        c.name AS "PAÍS",
+        TO_CHAR(ai.date_invoice, 'MM') AS "MES",
+        TO_CHAR(ai.date_invoice, 'DD') AS "DÍA",
+        CASE 
+            WHEN ai.type = 'out_invoice' THEN 
+                COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0)
+            ELSE 
+                -(COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0))
+        END AS "PORTES CARGADOS POR EL TRANSPORTISTA",
+        CASE 
+            WHEN ai.type = 'out_invoice' THEN 
+                COALESCE(ai.portes_cubiertos, 0)
+            ELSE 
+                -(COALESCE(ai.portes_cubiertos, 0))
+        END AS "PORTES CUBIERTOS",
+        CASE 
+            WHEN ai.type = 'out_invoice' THEN 
+                COALESCE(ai.portes, 0)
+            ELSE 
+                -(COALESCE(ai.portes, 0))
+        END AS "PORTES COBRADOS A CLIENTE",
+        TO_CHAR(ai.date_invoice, 'YYYY') AS "AÑO"
+    FROM 
+        account_invoice ai
+    INNER JOIN 
+        res_partner_address rpa ON rpa.id = ai.address_shipping_id
+    INNER JOIN 
+        res_country c ON c.id = rpa.pais_id
+    LEFT JOIN 
+        stock_sede_ps ssp ON ssp.id = ai.sede_id
+    LEFT JOIN 
+        res_company rc ON rc.id = ai.company_id
+    LEFT JOIN 
+        res_partner rp ON rp.id = ai.partner_id
+    WHERE 
+        ai.state NOT IN ('draft', 'cancel') 
+        AND ai.type IN ('out_invoice', 'out_refund') 
+        AND ai.carrier_id IS NOT NULL 
+        AND ai.date_invoice BETWEEN '{start_date_str}' AND '{end_date_str}'
+        AND ai.obsolescencia = FALSE
     GROUP BY 
-        sm.id,
-        rp.id,
-        sm.company_id,
-        sp.sede_id,
-        sp.date_invoice,
-        pp.seccion,
-        pp.familia,
-        pp.subfamilia,
-        pp.default_code,
-        pp.id,
-        sm.cantidad_pedida,
-        sp.partner_id,
-        rpa.prov_id,
-        rpa.state_id_2,
-        rpa.cautonoma_id,
+        ai.id,
+        ai.company_id,
+        ai.date_invoice,
+        TO_CHAR(ai.date_invoice, 'YYYY'),
+        TO_CHAR(ai.date_invoice, 'MM'),
+        TO_CHAR(ai.date_invoice, 'YYYY-MM-DD'),
+        ai.carrier_id,
+        ai.partner_id,
+        ai.name,
+        ai.obsolescencia,
+        ai.type,
         c.name,
-        sp.address_invoice_id,
-        pp.proveedor_id1,
-        sm.price_subtotal,
-        sm.margen,
-        pp.tarifa5,
-        sp.directo_cliente,
-        sp.obsolescencia,
-        sp.anticipo,
-        sp.name,
-        s.name,
-        f.name,
-        sf.name,
+        rpa.state_id_2,
+        COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0),
+        COALESCE(ai.portes_cubiertos, 0),
+        COALESCE(ai.portes, 0),
         rc.name,
         ssp.name,
-        stp.date_preparado_app,
-        stp.directo_cliente,
-        stp.number_of_packages,
-        stp.num_pales,
-        sp.portes,
-        sp.portes_cubiertos,
+        rpa.prov_id,
+        rpa.cautonoma_id,
         rp.nombre_comercial,
-        spp.name,
-        sp.internal_number,
-        sp.origin,
-        sp.number,
-        rp.vat,
-        rp.fiscal_position_texto,
-        pm.name,
-        rpa.city
-    ORDER BY sm.id, stp.number_of_packages DESC;
+        rpa.city,
+        rp.id
+    ORDER BY 
+        ai.id DESC;
     """
     
     try:
@@ -206,7 +141,7 @@ def main():
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # Cargar el archivo Excel existente o crearlo si no existe
+    # Cargar el archivo Excel existente (el que se ha descargado a través del flujo)
     try:
         book = load_workbook(file_path)
         sheet = book.active
@@ -218,8 +153,10 @@ def main():
         for cell in sheet["1:1"]:
             cell.font = Font(bold=True)
     
-    # Evitar duplicados usando el ID (sm.id) como clave
+    # Extraer los IDs ya existentes (usando "ID FACTURA", que es la primera columna)
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
+    
+    # Añadir sólo los registros nuevos (evitando duplicados)
     for row in resultados:
         if row[0] not in existing_ids:
             sheet.append(row)
@@ -233,7 +170,7 @@ def main():
                     target_cell.border = copy.copy(source_cell.border)
                     target_cell.alignment = copy.copy(source_cell.alignment)
     
-    # Crear o actualizar la tabla en la hoja para formatear los datos como tabla
+    # Formatear el rango de datos como tabla
     max_row = sheet.max_row
     max_col = sheet.max_column
     last_col_letter = get_column_letter(max_col)
