@@ -16,7 +16,7 @@ def main():
     db_password = os.environ.get('DB_PASSWORD', '')
     db_host = os.environ.get('DB_HOST', '2.136.142.253')
     db_port = os.environ.get('DB_PORT', '5432')
-    file_path = os.environ.get('EXCEL_FILE_PATH', 'Copìa_Portes.xlsx')
+    file_path = os.environ.get('EXCEL_FILE_PATH', 'Portes.xlsx')
     
     db_params = {
         'dbname': db_name,
