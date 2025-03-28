@@ -1,6 +1,6 @@
 import os
 import psycopg2
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Font
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils import get_column_letter
@@ -16,6 +16,7 @@ def main():
     db_password = os.environ.get('DB_PASSWORD', '')
     db_host = os.environ.get('DB_HOST', '2.136.142.253')
     db_port = os.environ.get('DB_PORT', '5432')
+    # Archivo base que ya tiene la tabla con el estilo
     file_path = os.environ.get('EXCEL_FILE_PATH', 'Portes.xlsx')
     
     db_params = {
@@ -32,7 +33,7 @@ def main():
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # 3. Consulta SQL
+    # 3. Consulta SQL (usando las fechas dinámicas)
     query = f"""
     SELECT 
         ai.id AS "ID FACTURA",
@@ -124,7 +125,7 @@ def main():
         ai.id DESC;
     """
     
-    # 4. Ejecutar consulta
+    # 4. Ejecutar la consulta
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
@@ -146,22 +147,24 @@ def main():
         book = load_workbook(file_path)
         sheet = book.active
     except FileNotFoundError:
-        # Si no encuentra el archivo base con la tabla, no podrá reusar el estilo
-        # Podrías crear uno nuevo, pero no tendrás el mismo estilo
-        book = Workbook()
-        sheet = book.active
-        sheet.title = "Resultados"
-        sheet.append(headers)
-        for cell in sheet["1:1"]:
-            cell.font = Font(bold=True)
+        print(f"No se encontró el archivo base '{file_path}' con la tabla. Se aborta para no perder el estilo.")
+        return
     
     # 6. Evitar duplicados (asumiendo que la primera columna es "ID FACTURA")
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
     for row in resultados:
         if row[0] not in existing_ids:
             sheet.append(row)
-            # Si deseas copiar estilos de la última fila anterior, hazlo aquí
-            # (similar a lo que tenías, con copy.copy de fonts, fill, etc.)
+            # Copiar estilos de la última fila anterior (opcional):
+            new_row_index = sheet.max_row
+            if new_row_index > 1:
+                for col in range(1, sheet.max_column + 1):
+                    source_cell = sheet.cell(row=new_row_index - 1, column=col)
+                    target_cell = sheet.cell(row=new_row_index, column=col)
+                    target_cell.font = copy.copy(source_cell.font)
+                    target_cell.fill = copy.copy(source_cell.fill)
+                    target_cell.border = copy.copy(source_cell.border)
+                    target_cell.alignment = copy.copy(source_cell.alignment)
     
     # 7. Actualizar la referencia de la tabla existente
     # Asumiendo que la tabla en Excel se llama "MiTabla"
@@ -173,11 +176,12 @@ def main():
         last_col_letter = get_column_letter(max_col)
         new_ref = f"A1:{last_col_letter}{max_row}"
         tabla.ref = new_ref
+        print(f"Tabla 'MiTabla' actualizada a rango: {new_ref}")
     else:
-        print("No se encontró la tabla 'MiTabla'. Se conservará el formato pero no se actualizará la referencia.")
+        print("No se encontró la tabla 'MiTabla'. Se conservará el formato que tenía el archivo, pero no se expandirá la referencia de la tabla.")
     
     book.save(file_path)
-    print(f"Archivo guardado con la estructura de tabla original en {file_path}.")
+    print(f"Archivo guardado con la estructura de tabla original en '{file_path}'.")
 
 if __name__ == '__main__':
     main()
