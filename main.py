@@ -33,7 +33,7 @@ def main():
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # Consulta SQL (usando la consulta que proporcionaste, con el filtro de fecha dinámico)
+    # Consulta SQL actualizada usando las fechas dinámicas
     query = f"""
     SELECT 
         ai.id AS "ID FACTURA",
@@ -141,7 +141,7 @@ def main():
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # Cargar el archivo Excel existente o crear uno nuevo si no existe
+    # Cargar el archivo Excel existente o crearlo si no existe
     try:
         book = load_workbook(file_path)
         sheet = book.active
@@ -153,10 +153,10 @@ def main():
         for cell in sheet["1:1"]:
             cell.font = Font(bold=True)
     
-    # Extraer los IDs ya existentes (usando "ID FACTURA", columna 1)
+    # Extraer los IDs ya existentes (se asume que la primera columna es "ID FACTURA")
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
     
-    # Añadir únicamente las filas nuevas (evitar duplicados)
+    # Añadir sólo los registros nuevos evitando duplicados
     for row in resultados:
         if row[0] not in existing_ids:
             sheet.append(row)
@@ -170,7 +170,7 @@ def main():
                     target_cell.border = copy.copy(source_cell.border)
                     target_cell.alignment = copy.copy(source_cell.alignment)
     
-    # Convertir el rango de datos en una tabla para facilitar su uso en Power BI
+    # Convertir el rango de datos en una tabla para Power BI
     max_row = sheet.max_row
     max_col = sheet.max_column
     last_col_letter = get_column_letter(max_col)
