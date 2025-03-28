@@ -93,7 +93,7 @@ def main():
         rp.nombre_comercial,
         rpa.city
     ORDER BY
-        ai.date_invoice DESC;
+        ai.date_invoice;
     """
     
     try:
