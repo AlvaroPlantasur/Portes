@@ -1,12 +1,12 @@
-name: Ejecutar script y enviar archivo a Power Automate
+name: Ejecutar script y actualizar archivo en OneDrive
 
 on:
   schedule:
-    - cron: '0 * * * *'   # Se ejecuta cada hora (ajusta según tus necesidades)
-  workflow_dispatch:      # Permite ejecutar el workflow manualmente
+    - cron: '0 * * * *'   # Se ejecuta cada hora en UTC
+  workflow_dispatch:
 
 jobs:
-  run-and-send:
+  run-and-update:
     runs-on: ubuntu-latest
     env:
       DB_NAME: ${{ secrets.DB_NAME }}
@@ -27,11 +27,17 @@ jobs:
       - name: Instalar dependencias
         run: pip install -r requirements.txt
 
-      - name: Ejecutar script
+      - name: Ejecutar script de actualización del Excel
         run: python main.py
 
-      - name: Enviar archivo a Power Automate
+      - name: Leer archivo actualizado y codificar en base64
+        id: encode_file
         run: |
+          base64 "${{ env.EXCEL_FILE_PATH }}" > encoded.txt
+          cat encoded.txt
+      - name: Enviar archivo actualizado a Power Automate
+        run: |
+          UPDATED_CONTENT=$(cat encoded.txt)
           curl -X POST "https://prod-120.westeurope.logic.azure.com:443/workflows/77fbcf15c8a643bbb3fd225993761713/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=j4g0ozXaCTIl3B-Zw6MI8JxdsBYoZsOrlrSB88KQwfs" \
-          -H "Content-Type: application/octet-stream" \
-          --data-binary "@${{ env.EXCEL_FILE_PATH }}"
+            -H "Content-Type: application/json" \
+            -d "{\"updated_file\": \"${UPDATED_CONTENT}\"}"
