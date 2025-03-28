@@ -10,7 +10,7 @@ import sys
 import copy
 
 def main():
-    # Obtener credenciales y ruta del archivo desde variables de entorno
+    # Obtener credenciales y ruta del archivo desde variables de entorno (inyectadas vía GitHub Secrets)
     db_name = os.environ.get('DB_NAME', 'semillas')
     db_user = os.environ.get('DB_USER', 'openerp')
     db_password = os.environ.get('DB_PASSWORD', '')
@@ -27,13 +27,13 @@ def main():
     }
     
     # Calcular rango de fechas:
-    # Desde el primer día del mes de hace dos meses hasta hoy.
+    # Desde el primer día del mes de hace dos meses hasta el día actual.
     end_date = datetime.now()
     start_date = (end_date - relativedelta(months=2)).replace(day=1)
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # Consulta SQL actualizada usando las fechas dinámicas
+    # Consulta SQL (usando la consulta que proporcionaste, con el filtro de fecha dinámico)
     query = f"""
     SELECT 
         ai.id AS "ID FACTURA",
@@ -141,7 +141,7 @@ def main():
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # Cargar el archivo Excel existente (el que se ha descargado a través del flujo)
+    # Cargar el archivo Excel existente o crear uno nuevo si no existe
     try:
         book = load_workbook(file_path)
         sheet = book.active
@@ -153,10 +153,10 @@ def main():
         for cell in sheet["1:1"]:
             cell.font = Font(bold=True)
     
-    # Extraer los IDs ya existentes (usando "ID FACTURA", que es la primera columna)
+    # Extraer los IDs ya existentes (usando "ID FACTURA", columna 1)
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
     
-    # Añadir sólo los registros nuevos (evitando duplicados)
+    # Añadir únicamente las filas nuevas (evitar duplicados)
     for row in resultados:
         if row[0] not in existing_ids:
             sheet.append(row)
@@ -170,7 +170,7 @@ def main():
                     target_cell.border = copy.copy(source_cell.border)
                     target_cell.alignment = copy.copy(source_cell.alignment)
     
-    # Formatear el rango de datos como tabla
+    # Convertir el rango de datos en una tabla para facilitar su uso en Power BI
     max_row = sheet.max_row
     max_col = sheet.max_column
     last_col_letter = get_column_letter(max_col)
