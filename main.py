@@ -2,7 +2,7 @@ import os
 import psycopg2
 import pandas as pd
 from openpyxl import load_workbook, Workbook
-from openpyxl.styles import Font
+from openpyxl.styles import Font, PatternFill, Border, Alignment
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 import sys
@@ -14,7 +14,8 @@ def main():
     db_password = os.environ.get('DB_PASSWORD', '')
     db_host = os.environ.get('DB_HOST', '2.136.142.253')
     db_port = os.environ.get('DB_PORT', '5432')
-    file_path = os.environ.get('EXCEL_FILE_PATH', 'hoy.xlsx')
+    # Usar el archivo "Copìa_Portes.xlsx" (asegúrate de que esté en una ubicación persistente)
+    file_path = os.environ.get('EXCEL_FILE_PATH', 'Copìa_Portes.xlsx')
     
     db_params = {
         'dbname': db_name,
@@ -24,77 +25,130 @@ def main():
         'port': db_port
     }
     
-    # Calcular fechas: desde el primer día de hace dos meses hasta hoy.
+    # Calcular fechas: desde el primer día de hace dos meses hasta el día actual.
     end_date = datetime.now()
     start_date = (end_date - relativedelta(months=2)).replace(day=1)
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # Consulta SQL para obtener los datos desde dos meses atrás hasta hoy
+    # Consulta SQL (actualiza la consulta según tus necesidades)
     query = f"""
-    SELECT 
-        ai.id AS "ID FACTURA",
-        ai.date_invoice AS "FECHA FACTURA",
-        ai.internal_number AS "CODIGO FACTURA",
-        ai.name AS "DESCRIPCION",
-        rc.name AS "COMPAÑÍA",
-        ssp.name AS "SEDE",
-        rp.nombre_comercial AS "CLIENTE",
-        rpa.city AS "CIUDAD",
-        (CASE WHEN rpa.prov_id IS NOT NULL THEN (SELECT UPPER(name) FROM res_country_provincia WHERE id = rpa.prov_id) 
-            ELSE UPPER(rpa.state_id_2) 
-        END) AS "PROVINCIA",
-        (CASE WHEN rpa.cautonoma_id IS NOT NULL THEN (SELECT UPPER(name) FROM res_country_ca WHERE id = rpa.cautonoma_id) 
-            ELSE '' 
-        END) AS "COMUNIDAD",
-        c.name AS "PAÍS",
-        TO_CHAR(ai.date_invoice, 'MM') AS "MES",
-        TO_CHAR(ai.date_invoice, 'DD') AS "DÍA",
-        (CASE WHEN ai.type = 'out_invoice' THEN COALESCE(ai.portes,0) + COALESCE(ai.portes_cubiertos,0) 
-        ELSE -(COALESCE(ai.portes,0) + COALESCE(ai.portes_cubiertos,0))
-        END) AS "PORTES CARGADOS POR EL TRANSPORTISTA",
-        (CASE WHEN ai.type = 'out_invoice' THEN COALESCE(ai.portes_cubiertos,0) 
-        ELSE -(COALESCE(ai.portes_cubiertos,0))
-        END) AS "PORTES CUBIERTOS",
-        (CASE WHEN ai.type = 'out_invoice' THEN COALESCE(ai.portes,0) 
-        ELSE -(COALESCE(ai.portes,0))
-        END) AS "PORTES COBRADOS A CLIENTE"
-    FROM account_invoice ai
-    INNER JOIN res_partner_address rpa ON rpa.id = ai.address_shipping_id
-    INNER JOIN res_country c ON (c.id = rpa.pais_id)
-    LEFT JOIN stock_sede_ps ssp ON ssp.id = ai.sede_id
-    LEFT JOIN res_company rc ON rc.id = ai.company_id
-    LEFT JOIN res_partner rp ON rp.id = ai.partner_id
-    WHERE ai.state NOT IN ('draft','cancel') 
-      AND ai.type IN ('out_invoice','out_refund') 
-      AND ai.carrier_id IS NOT NULL 
-      AND ai.date_invoice >= '{start_date_str}' 
-      AND ai.date_invoice <= '{end_date_str}'
+    SELECT DISTINCT ON (sm.id)
+        sm.invoice_id as "ID FACTURA",
+        rp.id as "ID CLIENTE",
+        'S-' || rp.id AS "ID BBSeeds",
+        sp.name as "DESCRIPCIÓN",
+        sp.internal_number as "CÓDIGO FACTURA",
+        sp.number as "NÚMERO DEL ASIENTO",
+        to_char(sp.date_invoice, 'DD/MM/YYYY') as "FECHA FACTURA",
+        sp.origin as "DOCUMENTO ORIGEN",
+        pp.default_code as "REFERENCIA PRODUCTO", 
+        pp.name as "NOMBRE", 
+        COALESCE(pm.name,'') as "MARCA",
+        s.name AS "SECCION", 
+        f.name as "FAMILIA", 
+        sf.name as "SUBFAMILIA",
+        rc.name as "COMPAÑÍA",
+        ssp.name as "SEDE",
+        stp.date_preparado_app as "FECHA PREPARADO APP",
+        (CASE WHEN stp.directo_cliente = true THEN 'Sí' ELSE 'No' END) AS "CAMIÓN DIRECTO",
+        stp.number_of_packages as "NUMERO DE BULTOS",
+        stp.num_pales as "NUMERO DE PALES",
+        sp.portes as "PORTES",
+        sp.portes_cubiertos as "PORTES CUBIERTOS",
+        rp.nombre_comercial as "CLIENTE",
+        rp.vat as "CIF CLIENTE",
+        (CASE WHEN rpa.prov_id IS NOT NULL THEN (SELECT name FROM res_country_provincia WHERE id = rpa.prov_id) 
+              ELSE rpa.state_id_2 END) as "PROVINCIA",
+        rpa.city as "CIUDAD",
+        (CASE WHEN rpa.cautonoma_id IS NOT NULL THEN (SELECT upper(name) FROM res_country_ca WHERE id = rpa.cautonoma_id) 
+              ELSE '' END) as "COMUNIDAD",
+        c.name as "PAÍS",
+        to_char(sp.date_invoice, 'MM') as "MES",
+        to_char(sp.date_invoice, 'DD') as "DÍA",
+        spp.name as "PREPARADOR",
+        sm.peso_arancel as "PESO",
+        sum(CASE WHEN sp.type = 'out_invoice' THEN sm.cantidad_pedida
+                 WHEN sp.type = 'out_refund' THEN -sm.cantidad_pedida END) as "UNIDADES VENTA",
+        sum(CASE WHEN sp.type = 'out_invoice' THEN sm.price_subtotal
+                 WHEN sp.type = 'out_refund' THEN -sm.price_subtotal END) as "BASE VENTA TOTAL",
+        sum(CASE WHEN sp.type = 'out_invoice' THEN sm.margen
+                 WHEN sp.type = 'out_refund' THEN -sm.margen END) as "MARGEN EUROS",
+        sum(CASE WHEN sp.type = 'out_invoice' THEN sm.cantidad_pedida * sm.cost_price_real
+                 WHEN sp.type = 'out_refund' THEN -sm.cantidad_pedida * sm.cost_price_real END) as "COSTE VENTA TOTAL"
+    FROM account_invoice_line sm
+    INNER JOIN account_invoice sp ON sp.id = sm.invoice_id
+    INNER JOIN product_product pp ON sm.product_id = pp.id
+    INNER JOIN res_partner_address rpa ON sp.address_invoice_id = rpa.id
+    INNER JOIN res_country c ON c.id = rpa.pais_id
+    LEFT OUTER JOIN stock_picking_invoice_rel spir ON spir.invoice_id = sp.id
+    LEFT OUTER JOIN stock_picking stp ON stp.id = spir.pick_id
+    LEFT OUTER JOIN stock_picking_preparador spp ON spp.id = stp.preparador
+    LEFT OUTER JOIN res_company rc ON rc.id = sp.company_id
+    LEFT OUTER JOIN res_partner rp ON rp.id = sp.partner_id
+    LEFT OUTER JOIN stock_sede_ps ssp ON ssp.id = sp.sede_id
+    LEFT OUTER JOIN product_category s ON s.id = pp.seccion
+    LEFT OUTER JOIN product_category f ON f.id = pp.familia
+    LEFT OUTER JOIN product_category sf ON sf.id = pp.subfamilia
+    LEFT OUTER JOIN product_marca pm ON pm.id = pp.marca
+    WHERE sp.type in ('out_invoice','out_refund')
+      AND sp.state in ('open','paid')
+      AND sp.journal_id != 11
+      AND sp.anticipo = false
+      AND pp.default_code NOT LIKE 'XXX%'
+      AND sp.obsolescencia = false
+      AND rp.nombre_comercial NOT LIKE '%PLANTASUR TRADING%'
+      AND rp.nombre_comercial NOT LIKE '%PLANTADUCH%'
+      AND sp.date_invoice >= '{start_date_str}'
+      AND sp.date_invoice <= '{end_date_str}'
     GROUP BY 
-        ai.id,
-        ai.company_id,
-        ai.date_invoice,
-        TO_CHAR(ai.date_invoice, 'YYYY'),
-        TO_CHAR(ai.date_invoice, 'MM'),
-        TO_CHAR(ai.date_invoice, 'YYYY-MM-DD'),
-        ai.carrier_id,
-        ai.partner_id,
-        ai.name,
-        ai.obsolescencia,
-        ai.type,
-        c.name,
+        sm.id,
+        rp.id,
+        sm.company_id,
+        sp.sede_id,
+        sp.date_invoice,
+        pp.seccion,
+        pp.familia,
+        pp.subfamilia,
+        pp.default_code,
+        pp.id,
+        sm.cantidad_pedida,
+        sp.partner_id,
+        rpa.prov_id,
         rpa.state_id_2,
-        COALESCE(ai.portes,0) + COALESCE(ai.portes_cubiertos,0),
-        COALESCE(ai.portes_cubiertos,0),
-        COALESCE(ai.portes,0),
+        rpa.cautonoma_id,
+        c.name,
+        sp.address_invoice_id,
+        pp.proveedor_id1,
+        sm.price_subtotal,
+        sm.margen,
+        pp.tarifa5,
+        sp.directo_cliente,
+        sp.obsolescencia,
+        sp.anticipo,
+        sp.name,
+        s.name,
+        f.name,
+        sf.name,
         rc.name,
         ssp.name,
-        rpa.prov_id,
-        rpa.cautonoma_id,
+        stp.date_preparado_app,
+        stp.directo_cliente,
+        stp.number_of_packages,
+        stp.num_pales,
+        sp.portes,
+        sp.portes_cubiertos,
         rp.nombre_comercial,
+        spp.name,
+        sp.internal_number,
+        sp.origin,
+        sp.number,
+        rp.vat,
+        pm.name,
         rpa.city
-    ORDER BY
-        ai.date_invoice ASC;
+    ORDER BY 
+        sm.id,
+        stp.number_of_packages DESC;
     """
     
     try:
@@ -125,11 +179,23 @@ def main():
         for cell in sheet["1:1"]:
             cell.font = Font(bold=True)
     
-    # Evitar duplicados usando el ID de factura
+    # Evitar duplicados usando el ID (sm.id) como clave
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
     for row in resultados:
         if row[0] not in existing_ids:
+            # Añadir la fila nueva
             sheet.append(row)
+            # Copiar el estilo de la última fila anterior (si existe) para mantener el formato
+            new_row_index = sheet.max_row
+            if new_row_index > 1:
+                # Suponemos que la fila anterior tiene el formato deseado
+                for col in range(1, sheet.max_column + 1):
+                    source_cell = sheet.cell(row=new_row_index - 1, column=col)
+                    target_cell = sheet.cell(row=new_row_index, column=col)
+                    target_cell.font = source_cell.font
+                    target_cell.fill = source_cell.fill
+                    target_cell.border = source_cell.border
+                    target_cell.alignment = source_cell.alignment
     
     book.save(file_path)
     print(f"Los datos se han guardado en el archivo {file_path}.")
