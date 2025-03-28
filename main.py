@@ -23,13 +23,11 @@ def main():
         'port': db_port
     }
     
-    # Calcular fechas: desde el primer día del mes actual hasta hoy.
+    # Calcular la fecha actual (hasta el día actual)
     end_date = datetime.now()
-    start_date = end_date.replace(day=1)
     end_date_str = end_date.strftime('%Y-%m-%d')
-    start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # Consulta SQL filtrando por fechas del mes actual
+    # Consulta SQL para obtener todos los datos hasta el día actual
     query = f"""
     SELECT 
         ai.id AS "ID FACTURA",
@@ -67,7 +65,6 @@ def main():
     WHERE ai.state NOT IN ('draft','cancel') 
       AND ai.type IN ('out_invoice','out_refund') 
       AND ai.carrier_id IS NOT NULL 
-      AND ai.date_invoice >= '{start_date_str}' 
       AND ai.date_invoice <= '{end_date_str}'
     GROUP BY 
         ai.id,
@@ -93,7 +90,7 @@ def main():
         rp.nombre_comercial,
         rpa.city
     ORDER BY
-        ai.date_invoice;
+        ai.date_invoice ASC;
     """
     
     try:
@@ -112,7 +109,7 @@ def main():
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # Intentar cargar el archivo Excel existente, o crearlo si no existe
+    # Cargar el archivo Excel existente o crear uno nuevo si no existe
     try:
         book = load_workbook(file_path)
         sheet = book.active
