@@ -24,9 +24,9 @@ def main():
         'port': db_port
     }
     
-    # Calcular fechas: desde dos meses atrás hasta hoy.
+    # Calcular fechas: desde el primer día de hace dos meses hasta hoy.
     end_date = datetime.now()
-    start_date = end_date - relativedelta(months=2)
+    start_date = (end_date - relativedelta(months=2)).replace(day=1)
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
