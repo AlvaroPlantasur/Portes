@@ -4,6 +4,7 @@ import pandas as pd
 from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Font
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 import sys
 
 def main():
@@ -23,11 +24,13 @@ def main():
         'port': db_port
     }
     
-    # Calcular la fecha actual (hasta el día actual)
+    # Calcular fechas: desde dos meses atrás hasta hoy.
     end_date = datetime.now()
+    start_date = end_date - relativedelta(months=2)
     end_date_str = end_date.strftime('%Y-%m-%d')
+    start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # Consulta SQL para obtener todos los datos hasta el día actual
+    # Consulta SQL para obtener los datos desde dos meses atrás hasta hoy
     query = f"""
     SELECT 
         ai.id AS "ID FACTURA",
@@ -65,6 +68,7 @@ def main():
     WHERE ai.state NOT IN ('draft','cancel') 
       AND ai.type IN ('out_invoice','out_refund') 
       AND ai.carrier_id IS NOT NULL 
+      AND ai.date_invoice >= '{start_date_str}' 
       AND ai.date_invoice <= '{end_date_str}'
     GROUP BY 
         ai.id,
