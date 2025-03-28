@@ -2,7 +2,7 @@ name: Ejecutar script y actualizar archivo en OneDrive
 
 on:
   schedule:
-    - cron: '0 * * * *'   # Se ejecuta cada hora en UTC
+    - cron: '0 * * * *'   # Se ejecuta cada hora (UTC)
   workflow_dispatch:
 
 jobs:
@@ -34,10 +34,17 @@ jobs:
         id: encode_file
         run: |
           base64 "${{ env.EXCEL_FILE_PATH }}" > encoded.txt
-          cat encoded.txt
+          tr -d '\n' < encoded.txt > encoded_single.txt
+          cat encoded_single.txt
+      - name: Crear payload JSON
+        run: |
+          printf '{"updated_file": "' > payload.json
+          cat encoded_single.txt >> payload.json
+          printf '"}' >> payload.json
+          cat payload.json
       - name: Enviar archivo actualizado a Power Automate
         run: |
-          UPDATED_CONTENT=$(cat encoded.txt)
+          UPDATED_CONTENT=$(cat payload.json)
           curl -X POST "https://prod-120.westeurope.logic.azure.com:443/workflows/77fbcf15c8a643bbb3fd225993761713/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=j4g0ozXaCTIl3B-Zw6MI8JxdsBYoZsOrlrSB88KQwfs" \
             -H "Content-Type: application/json" \
-            -d "{\"updated_file\": \"${UPDATED_CONTENT}\"}"
+            --data-binary "@payload.json"
