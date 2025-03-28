@@ -1,6 +1,6 @@
 import os
 import psycopg2
-from openpyxl import load_workbook, Workbook
+from openpyxl import load_workbook
 from openpyxl.styles import Font
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils import get_column_letter
@@ -10,7 +10,7 @@ import sys
 import copy
 
 def main():
-    # Obtener credenciales y ruta del archivo desde variables de entorno
+    # 1. Credenciales y archivo base
     db_name = os.environ.get('DB_NAME', 'semillas')
     db_user = os.environ.get('DB_USER', 'openerp')
     db_password = os.environ.get('DB_PASSWORD', '')
@@ -26,13 +26,13 @@ def main():
         'port': db_port
     }
     
-    # Calcular rango de fechas: desde el primer día del mes de hace dos meses hasta el día actual.
+    # 2. Calcular fechas
     end_date = datetime.now()
     start_date = (end_date - relativedelta(months=2)).replace(day=1)
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # Consulta SQL (adaptada para usar el rango de fechas dinámico)
+    # 3. Consulta SQL
     query = f"""
     SELECT 
         ai.id AS "ID FACTURA",
@@ -45,27 +45,37 @@ def main():
         rp.nombre_comercial AS "CLIENTE",
         rpa.city AS "CIUDAD",
         CASE 
-            WHEN rpa.prov_id IS NOT NULL THEN (SELECT UPPER(name) FROM res_country_provincia WHERE id = rpa.prov_id)
-            ELSE UPPER(rpa.state_id_2)
+            WHEN rpa.prov_id IS NOT NULL THEN 
+                (SELECT UPPER(name) FROM res_country_provincia WHERE id = rpa.prov_id)
+            ELSE 
+                UPPER(rpa.state_id_2)
         END AS "PROVINCIA",
         CASE 
-            WHEN rpa.cautonoma_id IS NOT NULL THEN (SELECT UPPER(name) FROM res_country_ca WHERE id = rpa.cautonoma_id)
-            ELSE ''
+            WHEN rpa.cautonoma_id IS NOT NULL THEN 
+                (SELECT UPPER(name) FROM res_country_ca WHERE id = rpa.cautonoma_id)
+            ELSE 
+                ''
         END AS "COMUNIDAD",
         c.name AS "PAÍS",
         TO_CHAR(ai.date_invoice, 'MM') AS "MES",
         TO_CHAR(ai.date_invoice, 'DD') AS "DÍA",
         CASE 
-            WHEN ai.type = 'out_invoice' THEN COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0)
-            ELSE -(COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0))
+            WHEN ai.type = 'out_invoice' THEN 
+                COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0)
+            ELSE 
+                -(COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0))
         END AS "PORTES CARGADOS POR EL TRANSPORTISTA",
         CASE 
-            WHEN ai.type = 'out_invoice' THEN COALESCE(ai.portes_cubiertos, 0)
-            ELSE -(COALESCE(ai.portes_cubiertos, 0))
+            WHEN ai.type = 'out_invoice' THEN 
+                COALESCE(ai.portes_cubiertos, 0)
+            ELSE 
+                -(COALESCE(ai.portes_cubiertos, 0))
         END AS "PORTES CUBIERTOS",
         CASE 
-            WHEN ai.type = 'out_invoice' THEN COALESCE(ai.portes, 0)
-            ELSE -(COALESCE(ai.portes, 0))
+            WHEN ai.type = 'out_invoice' THEN 
+                COALESCE(ai.portes, 0)
+            ELSE 
+                -(COALESCE(ai.portes, 0))
         END AS "PORTES COBRADOS A CLIENTE",
         TO_CHAR(ai.date_invoice, 'YYYY') AS "AÑO"
     FROM 
@@ -114,6 +124,7 @@ def main():
         ai.id DESC;
     """
     
+    # 4. Ejecutar consulta
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
@@ -130,11 +141,13 @@ def main():
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # Cargar el archivo Excel existente o crearlo si no existe
+    # 5. Cargar el archivo base que ya tiene la tabla con el estilo
     try:
         book = load_workbook(file_path)
         sheet = book.active
     except FileNotFoundError:
+        # Si no encuentra el archivo base con la tabla, no podrá reusar el estilo
+        # Podrías crear uno nuevo, pero no tendrás el mismo estilo
         book = Workbook()
         sheet = book.active
         sheet.title = "Resultados"
@@ -142,42 +155,29 @@ def main():
         for cell in sheet["1:1"]:
             cell.font = Font(bold=True)
     
-    # Extraer los IDs ya existentes (se asume que la primera columna es "ID FACTURA")
+    # 6. Evitar duplicados (asumiendo que la primera columna es "ID FACTURA")
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
-    
-    # Añadir solo las filas nuevas para evitar duplicados
     for row in resultados:
         if row[0] not in existing_ids:
             sheet.append(row)
-            # (Opcional) Puedes copiar estilos de la última fila si es necesario
-            new_row_index = sheet.max_row
-            if new_row_index > 1:
-                for col in range(1, sheet.max_column + 1):
-                    source_cell = sheet.cell(row=new_row_index - 1, column=col)
-                    target_cell = sheet.cell(row=new_row_index, column=col)
-                    target_cell.font = copy.copy(source_cell.font)
-                    target_cell.fill = copy.copy(source_cell.fill)
-                    target_cell.border = copy.copy(source_cell.border)
-                    target_cell.alignment = copy.copy(source_cell.alignment)
+            # Si deseas copiar estilos de la última fila anterior, hazlo aquí
+            # (similar a lo que tenías, con copy.copy de fonts, fill, etc.)
     
-    # Convertir el rango de datos en una tabla para Power BI
-    max_row = sheet.max_row
-    max_col = sheet.max_column
-    last_col_letter = get_column_letter(max_col)
-    table_ref = f"A1:{last_col_letter}{max_row}"
-    
-    if not sheet._tables:
-        tab = Table(displayName="Table1", ref=table_ref)
-        style = TableStyleInfo(name="TableStyleMedium9", showFirstColumn=False,
-                               showLastColumn=False, showRowStripes=True, showColumnStripes=False)
-        tab.tableStyleInfo = style
-        sheet.add_table(tab)
+    # 7. Actualizar la referencia de la tabla existente
+    # Asumiendo que la tabla en Excel se llama "MiTabla"
+    # (Asegúrate de que en tu archivo base la tabla tenga ese nombre)
+    if "MiTabla" in sheet.tables:
+        tabla = sheet.tables["MiTabla"]
+        max_row = sheet.max_row
+        max_col = sheet.max_column
+        last_col_letter = get_column_letter(max_col)
+        new_ref = f"A1:{last_col_letter}{max_row}"
+        tabla.ref = new_ref
     else:
-        for tab in sheet._tables:
-            tab.ref = table_ref
+        print("No se encontró la tabla 'MiTabla'. Se conservará el formato pero no se actualizará la referencia.")
     
     book.save(file_path)
-    print(f"Los datos se han guardado en el archivo {file_path}.")
+    print(f"Archivo guardado con la estructura de tabla original en {file_path}.")
 
 if __name__ == '__main__':
     main()
