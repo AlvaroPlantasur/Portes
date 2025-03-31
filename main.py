@@ -10,7 +10,7 @@ import sys
 import copy
 
 def main():
-    # 1. Obtener credenciales y la ruta del archivo base
+    # 1. Obtener credenciales y ruta del archivo
     db_name = os.environ.get('DB_NAME', 'semillas')
     db_user = os.environ.get('DB_USER', 'openerp')
     db_password = os.environ.get('DB_PASSWORD', '')
@@ -26,8 +26,7 @@ def main():
         'port': db_port
     }
     
-    # 2. Calcular el rango de fechas:
-    # Desde el primer día del mes de hace dos meses hasta el día actual.
+    # 2. Calcular el rango de fechas
     end_date = datetime.now()
     start_date = (end_date - relativedelta(months=2)).replace(day=1)
     end_date_str = end_date.strftime('%Y-%m-%d')
@@ -125,7 +124,7 @@ def main():
         ai.id DESC;
     """
     
-    # 4. Ejecutar la consulta y obtener los datos
+    # 4. Ejecutar la consulta
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
@@ -142,7 +141,7 @@ def main():
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # 5. Abrir el archivo base (Portes.xlsx) que se encuentra en la raíz del repositorio
+    # 5. Cargar el archivo base Portes.xlsx que se encuentra en la raíz del repositorio
     try:
         book = load_workbook(file_path)
         sheet = book.active
@@ -150,7 +149,7 @@ def main():
         print(f"No se encontró el archivo base '{file_path}'. Se aborta para no perder el formato.")
         return
     
-    # 6. Evitar duplicados (suponiendo que la primera columna es "ID FACTURA")
+    # 6. Evitar duplicados (asumiendo que la primera columna es "ID FACTURA")
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
     for row in resultados:
         if row[0] not in existing_ids:
@@ -165,7 +164,8 @@ def main():
                     target_cell.border = copy.copy(source_cell.border)
                     target_cell.alignment = copy.copy(source_cell.alignment)
     
-    # 7. Actualizar la referencia de la tabla existente (ahora la tabla se llama "Portes")
+    # 7. Actualizar la referencia de la tabla existente
+    # Asumimos que la tabla se llama "Portes"
     if "Portes" in sheet.tables:
         tabla = sheet.tables["Portes"]
         max_row = sheet.max_row
@@ -179,6 +179,6 @@ def main():
     
     book.save(file_path)
     print(f"Archivo guardado con la estructura de tabla en '{file_path}'.")
-
+    
 if __name__ == '__main__':
     main()
