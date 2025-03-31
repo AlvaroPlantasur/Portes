@@ -20,11 +20,11 @@ jobs:
         uses: actions/download-artifact@v2.0.10
 
       # Descargar el artefacto del archivo Excel (si existe)
-      - name: Download previous Excel artifact
-        uses: actions/download-artifact@v2
+      - name: Download updated Excel artifact
+        uses: actions/download-artifact@v2.0.10
         with:
           name: PortesExcel
-          path: .
+          path: ${{ env.EXCEL_FILE_PATH }}
         continue-on-error: true
 
       - name: Configurar Python
