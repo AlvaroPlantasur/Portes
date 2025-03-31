@@ -10,7 +10,7 @@ import sys
 import copy
 
 def main():
-    # 1. Obtener credenciales y archivo base
+    # 1. Obtener credenciales y la ruta del archivo base
     db_name = os.environ.get('DB_NAME', 'semillas')
     db_user = os.environ.get('DB_USER', 'openerp')
     db_password = os.environ.get('DB_PASSWORD', '')
@@ -33,7 +33,7 @@ def main():
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # 3. Consulta SQL
+    # 3. Consulta SQL con el rango de fechas dinámico
     query = f"""
     SELECT 
         ai.id AS "ID FACTURA",
@@ -125,7 +125,7 @@ def main():
         ai.id DESC;
     """
     
-    # 4. Ejecutar la consulta
+    # 4. Ejecutar la consulta y obtener los datos
     try:
         with psycopg2.connect(**db_params) as conn:
             with conn.cursor() as cur:
@@ -142,7 +142,8 @@ def main():
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # 5. Cargar el archivo base que ya tiene la tabla con el estilo
+    # 5. Abrir el archivo base que ya contiene la tabla con el formato deseado.
+    #    Este archivo debe existir en el directorio de trabajo (la raíz del repositorio en el runner).
     try:
         book = load_workbook(file_path)
         sheet = book.active
@@ -150,12 +151,12 @@ def main():
         print(f"No se encontró el archivo base '{file_path}'. Se aborta para no perder el formato.")
         return
     
-    # 6. Evitar duplicados (suponiendo que la primera columna es "ID FACTURA")
+    # 6. Evitar duplicados (asumiendo que la primera columna es "ID FACTURA")
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
     for row in resultados:
         if row[0] not in existing_ids:
             sheet.append(row)
-            # Opcional: copiar estilos de la última fila
+            # (Opcional) Copiar estilos de la última fila si se desea
             new_row_index = sheet.max_row
             if new_row_index > 1:
                 for col in range(1, sheet.max_column + 1):
@@ -166,7 +167,7 @@ def main():
                     target_cell.border = copy.copy(source_cell.border)
                     target_cell.alignment = copy.copy(source_cell.alignment)
     
-    # 7. Actualizar la referencia de la tabla existente (suponiendo que se llama "MiTabla")
+    # 7. Actualizar la referencia de la tabla existente (suponiendo que la tabla se llama "MiTabla")
     if "MiTabla" in sheet.tables:
         tabla = sheet.tables["MiTabla"]
         max_row = sheet.max_row
@@ -176,10 +177,10 @@ def main():
         tabla.ref = new_ref
         print(f"Tabla 'MiTabla' actualizada a rango: {new_ref}")
     else:
-        print("No se encontró la tabla 'MiTabla'. Se conservará el formato actual, pero no se actualizará la referencia de la tabla.")
+        print("No se encontró la tabla 'MiTabla'. El formato se conservará, pero no se actualizará la referencia de la tabla.")
     
     book.save(file_path)
     print(f"Archivo guardado con la estructura de tabla en '{file_path}'.")
-
+    
 if __name__ == '__main__':
     main()
