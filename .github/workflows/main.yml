@@ -14,18 +14,21 @@ jobs:
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
-      EXCEL_FILE_PATH: ${{ secrets.EXCEL_FILE_PATH }}  # Por ejemplo: "Copìa_Portes.xlsx"
+      EXCEL_FILE_PATH: ${{ secrets.EXCEL_FILE_PATH }}  # Ejemplo: "Portes.xlsx"
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v2
 
       # Descargar el artefacto del archivo Excel de la ejecución anterior (si existe)
       - name: Download previous Excel artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v2.0.10
         with:
           name: PortesExcel
           path: .
         continue-on-error: true
+
+      - name: List files in directory (pre-run)
+        run: ls -la
 
       - name: Configurar Python
         uses: actions/setup-python@v4
@@ -38,9 +41,12 @@ jobs:
       - name: Ejecutar script de actualización del Excel
         run: python main.py
 
+      - name: List files in directory (post-run)
+        run: ls -la
+
       # Subir el archivo actualizado como artefacto para persistencia
       - name: Upload updated Excel artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: PortesExcel
           path: ${{ env.EXCEL_FILE_PATH }}
