@@ -10,13 +10,12 @@ import sys
 import copy
 
 def main():
-    # 1. Credenciales y archivo base
+    # 1. Obtener credenciales y archivo base
     db_name = os.environ.get('DB_NAME', 'semillas')
     db_user = os.environ.get('DB_USER', 'openerp')
     db_password = os.environ.get('DB_PASSWORD', '')
     db_host = os.environ.get('DB_HOST', '2.136.142.253')
     db_port = os.environ.get('DB_PORT', '5432')
-    # Archivo base que ya tiene la tabla con el estilo
     file_path = os.environ.get('EXCEL_FILE_PATH', 'Portes.xlsx')
     
     db_params = {
@@ -27,13 +26,14 @@ def main():
         'port': db_port
     }
     
-    # 2. Calcular fechas
+    # 2. Calcular el rango de fechas:
+    # Desde el primer día del mes de hace dos meses hasta el día actual.
     end_date = datetime.now()
     start_date = (end_date - relativedelta(months=2)).replace(day=1)
     end_date_str = end_date.strftime('%Y-%m-%d')
     start_date_str = start_date.strftime('%Y-%m-%d')
     
-    # 3. Consulta SQL (usando las fechas dinámicas)
+    # 3. Consulta SQL
     query = f"""
     SELECT 
         ai.id AS "ID FACTURA",
@@ -147,15 +147,15 @@ def main():
         book = load_workbook(file_path)
         sheet = book.active
     except FileNotFoundError:
-        print(f"No se encontró el archivo base '{file_path}' con la tabla. Se aborta para no perder el estilo.")
+        print(f"No se encontró el archivo base '{file_path}'. Se aborta para no perder el formato.")
         return
     
-    # 6. Evitar duplicados (asumiendo que la primera columna es "ID FACTURA")
+    # 6. Evitar duplicados (suponiendo que la primera columna es "ID FACTURA")
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
     for row in resultados:
         if row[0] not in existing_ids:
             sheet.append(row)
-            # Copiar estilos de la última fila anterior (opcional):
+            # Opcional: copiar estilos de la última fila
             new_row_index = sheet.max_row
             if new_row_index > 1:
                 for col in range(1, sheet.max_column + 1):
@@ -166,9 +166,7 @@ def main():
                     target_cell.border = copy.copy(source_cell.border)
                     target_cell.alignment = copy.copy(source_cell.alignment)
     
-    # 7. Actualizar la referencia de la tabla existente
-    # Asumiendo que la tabla en Excel se llama "MiTabla"
-    # (Asegúrate de que en tu archivo base la tabla tenga ese nombre)
+    # 7. Actualizar la referencia de la tabla existente (suponiendo que se llama "MiTabla")
     if "MiTabla" in sheet.tables:
         tabla = sheet.tables["MiTabla"]
         max_row = sheet.max_row
@@ -178,10 +176,10 @@ def main():
         tabla.ref = new_ref
         print(f"Tabla 'MiTabla' actualizada a rango: {new_ref}")
     else:
-        print("No se encontró la tabla 'MiTabla'. Se conservará el formato que tenía el archivo, pero no se expandirá la referencia de la tabla.")
+        print("No se encontró la tabla 'MiTabla'. Se conservará el formato actual, pero no se actualizará la referencia de la tabla.")
     
     book.save(file_path)
-    print(f"Archivo guardado con la estructura de tabla original en '{file_path}'.")
+    print(f"Archivo guardado con la estructura de tabla en '{file_path}'.")
 
 if __name__ == '__main__':
     main()
