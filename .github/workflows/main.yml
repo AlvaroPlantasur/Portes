@@ -21,7 +21,7 @@ jobs:
 
       # Descargar el artefacto del archivo Excel de la ejecución anterior (si existe)
       - name: Download previous Excel artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: PortesExcel
           path: .
@@ -40,7 +40,7 @@ jobs:
 
       # Subir el archivo actualizado como artefacto para persistencia
       - name: Upload updated Excel artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: PortesExcel
           path: ${{ env.EXCEL_FILE_PATH }}
