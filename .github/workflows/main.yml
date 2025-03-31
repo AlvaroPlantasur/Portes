@@ -1,3 +1,6 @@
+permissions:
+  contents: write
+  
 name: Ejecutar script y actualizar archivo en OneDrive
 
 on:
