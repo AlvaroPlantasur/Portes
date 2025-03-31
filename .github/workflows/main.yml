@@ -59,6 +59,6 @@ jobs:
           cat payload.json
       - name: Enviar archivo actualizado a Power Automate
         run: |
-          curl -X POST "https://TU_URL_POWER_AUTOMATE" \
+          curl -X POST "https://prod-120.westeurope.logic.azure.com:443/workflows/77fbcf15c8a643bbb3fd225993761713/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=j4g0ozXaCTIl3B-Zw6MI8JxdsBYoZsOrlrSB88KQwfs" \
             -H "Content-Type: application/json" \
             --data-binary "@payload.json"
