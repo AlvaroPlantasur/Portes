@@ -17,7 +17,7 @@ jobs:
       EXCEL_FILE_PATH: ${{ secrets.EXCEL_FILE_PATH }}  # Asegúrate de que tenga un valor real, por ejemplo, "Copìa_Portes.xlsx"
     steps:
       - name: Checkout del repositorio
-        uses: actions/checkout@v2
+        uses: actions/download-artifact@v2.0.10
 
       # Descargar el artefacto del archivo Excel (si existe)
       - name: Download previous Excel artifact
