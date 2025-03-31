@@ -10,7 +10,7 @@ import sys
 import copy
 
 def main():
-    # 1. Obtener credenciales y ruta del archivo base (se encuentra en la raíz del repositorio)
+    # 1. Obtener credenciales y la ruta del archivo base
     db_name = os.environ.get('DB_NAME', 'semillas')
     db_user = os.environ.get('DB_USER', 'openerp')
     db_password = os.environ.get('DB_PASSWORD', '')
@@ -142,7 +142,7 @@ def main():
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # 5. Abrir el archivo base (debe estar en la raíz del repositorio)
+    # 5. Abrir el archivo base (Portes.xlsx) que se encuentra en la raíz del repositorio
     try:
         book = load_workbook(file_path)
         sheet = book.active
@@ -150,7 +150,7 @@ def main():
         print(f"No se encontró el archivo base '{file_path}'. Se aborta para no perder el formato.")
         return
     
-    # 6. Evitar duplicados (asumiendo que la primera columna es "ID FACTURA")
+    # 6. Evitar duplicados (suponiendo que la primera columna es "ID FACTURA")
     existing_ids = {row[0] for row in sheet.iter_rows(min_row=2, values_only=True)}
     for row in resultados:
         if row[0] not in existing_ids:
@@ -165,20 +165,20 @@ def main():
                     target_cell.border = copy.copy(source_cell.border)
                     target_cell.alignment = copy.copy(source_cell.alignment)
     
-    # 7. Actualizar la referencia de la tabla existente (asumiendo que la tabla se llama "MiTabla")
-    if "MiTabla" in sheet.tables:
+    # 7. Actualizar la referencia de la tabla existente (ahora la tabla se llama "Portes")
+    if "Portes" in sheet.tables:
         tabla = sheet.tables["Portes"]
         max_row = sheet.max_row
         max_col = sheet.max_column
         last_col_letter = get_column_letter(max_col)
         new_ref = f"A1:{last_col_letter}{max_row}"
         tabla.ref = new_ref
-        print(f"Tabla 'MiTabla' actualizada a rango: {new_ref}")
+        print(f"Tabla 'Portes' actualizada a rango: {new_ref}")
     else:
-        print("No se encontró la tabla 'MiTabla'. Se conservará el formato actual, pero no se actualizará la referencia de la tabla.")
+        print("No se encontró la tabla 'Portes'. Se conservará el formato actual, pero no se actualizará la referencia de la tabla.")
     
     book.save(file_path)
     print(f"Archivo guardado con la estructura de tabla en '{file_path}'.")
-    
+
 if __name__ == '__main__':
     main()
