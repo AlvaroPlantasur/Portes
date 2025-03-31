@@ -21,7 +21,7 @@ jobs:
 
       # Descargar el artefacto del archivo Excel de la ejecución anterior (si existe)
       - name: Download previous Excel artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v2.0.10
         with:
           name: PortesExcel
           path: .
@@ -46,27 +46,14 @@ jobs:
 
       # Subir el archivo actualizado como artefacto para persistencia
       - name: Upload updated Excel artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: PortesExcel
           path: ${{ env.EXCEL_FILE_PATH }}
 
-      - name: Leer archivo actualizado y codificar en base64
-        id: encode_file
-        run: |
-          base64 "${{ env.EXCEL_FILE_PATH }}" > encoded.txt
-          tr -d '\n' < encoded.txt > encoded_single.txt
-          cat encoded_single.txt
-          
-      - name: Crear payload JSON
-        run: |
-          printf '{"updated_file": "' > payload.json
-          cat encoded_single.txt >> payload.json
-          printf '"}' >> payload.json
-          cat payload.json
-          
+      # Enviar el archivo actualizado directamente a Power Automate
       - name: Enviar archivo actualizado a Power Automate
         run: |
           curl -X POST "https://prod-120.westeurope.logic.azure.com:443/workflows/77fbcf15c8a643bbb3fd225993761713/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=j4g0ozXaCTIl3B-Zw6MI8JxdsBYoZsOrlrSB88KQwfs" \
-            -H "Content-Type: application/json" \
-            --data-binary "@payload.json"
+            -H "Content-Type: application/octet-stream" \
+            --data-binary "@${{ env.EXCEL_FILE_PATH }}"
