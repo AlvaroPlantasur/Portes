@@ -167,7 +167,7 @@ def main():
     
     # 7. Actualizar la referencia de la tabla existente (asumiendo que la tabla se llama "MiTabla")
     if "MiTabla" in sheet.tables:
-        tabla = sheet.tables["MiTabla"]
+        tabla = sheet.tables["Portes"]
         max_row = sheet.max_row
         max_col = sheet.max_column
         last_col_letter = get_column_letter(max_col)
