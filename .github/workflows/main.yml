@@ -14,17 +14,17 @@ jobs:
       DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       DB_HOST: ${{ secrets.DB_HOST }}
       DB_PORT: ${{ secrets.DB_PORT }}
-      EXCEL_FILE_PATH: ${{ secrets.EXCEL_FILE_PATH }}  # Asegúrate de que tenga un valor real, por ejemplo, "Copìa_Portes.xlsx"
+      EXCEL_FILE_PATH: ${{ secrets.EXCEL_FILE_PATH }}  # Por ejemplo: "Copìa_Portes.xlsx"
     steps:
       - name: Checkout del repositorio
-        uses: actions/download-artifact@v3.0.2
+        uses: actions/checkout@v2
 
-      # Descargar el artefacto del archivo Excel (si existe)
-      - name: Download updated Excel artifact
-        uses: actions/upload-artifact@v3.0.2
+      # Descargar el artefacto del archivo Excel de la ejecución anterior (si existe)
+      - name: Download previous Excel artifact
+        uses: actions/download-artifact@v2.0.10
         with:
           name: PortesExcel
-          path: ${{ env.EXCEL_FILE_PATH }}
+          path: .
         continue-on-error: true
 
       - name: Configurar Python
@@ -40,7 +40,7 @@ jobs:
 
       # Subir el archivo actualizado como artefacto para persistencia
       - name: Upload updated Excel artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v2.0.10
         with:
           name: PortesExcel
           path: ${{ env.EXCEL_FILE_PATH }}
@@ -51,14 +51,16 @@ jobs:
           base64 "${{ env.EXCEL_FILE_PATH }}" > encoded.txt
           tr -d '\n' < encoded.txt > encoded_single.txt
           cat encoded_single.txt
+          
       - name: Crear payload JSON
         run: |
           printf '{"updated_file": "' > payload.json
           cat encoded_single.txt >> payload.json
           printf '"}' >> payload.json
           cat payload.json
+          
       - name: Enviar archivo actualizado a Power Automate
         run: |
-          curl -X POST "https://prod-120.westeurope.logic.azure.com:443/workflows/77fbcf15c8a643bbb3fd225993761713/triggers/manual/paths/invoke?api-version=2016-06-01&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=j4g0ozXaCTIl3B-Zw6MI8JxdsBYoZsOrlrSB88KQwfs" \
+          curl -X POST "https://TU_URL_POWER_AUTOMATE" \
             -H "Content-Type: application/json" \
             --data-binary "@payload.json"
