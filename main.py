@@ -26,11 +26,10 @@ def main():
         'port': db_port
     }
     
-    # 2. Calcular el rango de fechas
-    end_date = datetime.now()
-    start_date = (end_date - relativedelta(months=2)).replace(day=1)
-    end_date_str = end_date.strftime('%Y-%m-%d')
-    start_date_str = start_date.strftime('%Y-%m-%d')
+     # 2. Definir la nueva consulta SQL con fechas dinámicas
+    fecha_inicio_str = '2025-03-21'
+    fecha_fin = datetime.now().date()
+    fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
     
     # 3. Consulta SQL con el rango dinámico
     query = f"""
