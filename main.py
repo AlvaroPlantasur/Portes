@@ -33,7 +33,7 @@ def main():
     
     # 3. Consulta SQL con el rango dinámico
     query = f"""
-    SELECT 
+    SELECT
         ai.id AS "ID FACTURA",
         ai.date_invoice AS "FECHA FACTURA",
         ai.internal_number AS "CÓDIGO FACTURA",
@@ -43,59 +43,59 @@ def main():
         'S-' || rp.id AS "ID BBSeeds",
         rp.nombre_comercial AS "CLIENTE",
         rpa.city AS "CIUDAD",
-        CASE 
-            WHEN rpa.prov_id IS NOT NULL THEN 
+        CASE
+            WHEN rpa.prov_id IS NOT NULL THEN
                 (SELECT UPPER(name) FROM res_country_provincia WHERE id = rpa.prov_id)
-            ELSE 
+            ELSE
                 UPPER(rpa.state_id_2)
         END AS "PROVINCIA",
-        CASE 
-            WHEN rpa.cautonoma_id IS NOT NULL THEN 
+        CASE
+            WHEN rpa.cautonoma_id IS NOT NULL THEN
                 (SELECT UPPER(name) FROM res_country_ca WHERE id = rpa.cautonoma_id)
-            ELSE 
+            ELSE
                 ''
         END AS "COMUNIDAD",
         c.name AS "PAÍS",
         TO_CHAR(ai.date_invoice, 'MM') AS "MES",
         TO_CHAR(ai.date_invoice, 'DD') AS "DÍA",
-        CASE 
-            WHEN ai.type = 'out_invoice' THEN 
+        CASE
+            WHEN ai.type = 'out_invoice' THEN
                 COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0)
-            ELSE 
+            ELSE
                 -(COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0))
         END AS "PORTES CARGADOS POR EL TRANSPORTISTA",
-        CASE 
-            WHEN ai.type = 'out_invoice' THEN 
+        CASE
+            WHEN ai.type = 'out_invoice' THEN
                 COALESCE(ai.portes_cubiertos, 0)
-            ELSE 
+            ELSE
                 -(COALESCE(ai.portes_cubiertos, 0))
         END AS "PORTES CUBIERTOS",
-        CASE 
-            WHEN ai.type = 'out_invoice' THEN 
+        CASE
+            WHEN ai.type = 'out_invoice' THEN
                 COALESCE(ai.portes, 0)
-            ELSE 
+            ELSE
                 -(COALESCE(ai.portes, 0))
         END AS "PORTES COBRADOS A CLIENTE",
         TO_CHAR(ai.date_invoice, 'YYYY') AS "AÑO"
-    FROM 
+    FROM
         account_invoice ai
-    INNER JOIN 
+    INNER JOIN
         res_partner_address rpa ON rpa.id = ai.address_shipping_id
-    INNER JOIN 
+    INNER JOIN
         res_country c ON c.id = rpa.pais_id
-    LEFT JOIN 
+    LEFT JOIN
         stock_sede_ps ssp ON ssp.id = ai.sede_id
-    LEFT JOIN 
+    LEFT JOIN
         res_company rc ON rc.id = ai.company_id
-    LEFT JOIN 
+    LEFT JOIN
         res_partner rp ON rp.id = ai.partner_id
-    WHERE 
-        ai.state NOT IN ('draft', 'cancel') 
-        AND ai.type IN ('out_invoice', 'out_refund') 
-        AND ai.carrier_id IS NOT NULL 
-        AND ai.date_invoice BETWEEN '{start_date_str}' AND '{end_date_str}'
+    WHERE
+        ai.state NOT IN ('draft', 'cancel')
+        AND ai.type IN ('out_invoice', 'out_refund')
+        AND ai.carrier_id IS NOT NULL
+        AND ai.date_invoice BETWEEN '{fecha_inicio_str}' AND '{fecha_fin_str}'
         AND ai.obsolescencia = FALSE
-    GROUP BY 
+    GROUP BY
         ai.id,
         ai.company_id,
         ai.date_invoice,
@@ -119,7 +119,7 @@ def main():
         rp.nombre_comercial,
         rpa.city,
         rp.id
-    ORDER BY 
+    ORDER BY
         ai.id DESC;
     """
     
