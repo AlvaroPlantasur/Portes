@@ -27,7 +27,7 @@ def main():
     }
     
      # 2. Definir la nueva consulta SQL con fechas dinámicas
-    fecha_inicio_str = '2025-03-21'
+    fecha_inicio_str = '2025-01-01'
     fecha_fin = datetime.now().date()
     fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
     
