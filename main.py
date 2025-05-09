@@ -150,19 +150,19 @@ ORDER BY
         return
     
     # 6. Evitar duplicados (usando la tercera columna: "CODIGO FACTURA")
-	existing_invoice_codes = {row[2] for row in sheet.iter_rows(min_row=2, values_only=True) if row[2] is not None}
+    existing_invoice_codes = {row[2] for row in sheet.iter_rows(min_row=2, values_only=True) if row[2] is not None}
     for row in resultados:
     	if row[2] not in existing_invoice_codes:
-        sheet.append(row)
-        new_row_index = sheet.max_row
-        if new_row_index > 1:
-            for col in range(1, sheet.max_column + 1):
-                source_cell = sheet.cell(row=new_row_index - 1, column=col)
-                target_cell = sheet.cell(row=new_row_index, column=col)
-                target_cell.font = copy.copy(source_cell.font)
-                target_cell.fill = copy.copy(source_cell.fill)
-                target_cell.border = copy.copy(source_cell.border)
-                target_cell.alignment = copy.copy(source_cell.alignment)
+           sheet.append(row)
+           new_row_index = sheet.max_row
+           if new_row_index > 1:
+               for col in range(1, sheet.max_column + 1):
+	           source_cell = sheet.cell(row=new_row_index - 1, column=col)
+	           target_cell = sheet.cell(row=new_row_index, column=col)
+	           target_cell.font = copy.copy(source_cell.font)
+	           target_cell.fill = copy.copy(source_cell.fill)
+	           target_cell.border = copy.copy(source_cell.border)
+	           target_cell.alignment = copy.copy(source_cell.alignment)
 
     
     # 7. Actualizar la referencia de la tabla existente
