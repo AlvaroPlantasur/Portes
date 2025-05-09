@@ -150,9 +150,9 @@ ORDER BY
         return
     
     # 6. Evitar duplicados (usando la tercera columna: "CODIGO FACTURA")
-existing_invoice_codes = {row[2] for row in sheet.iter_rows(min_row=2, values_only=True) if row[2] is not None}
-for row in resultados:
-    if row[2] not in existing_invoice_codes:
+	existing_invoice_codes = {row[2] for row in sheet.iter_rows(min_row=2, values_only=True) if row[2] is not None}
+    for row in resultados:
+    	if row[2] not in existing_invoice_codes:
         sheet.append(row)
         new_row_index = sheet.max_row
         if new_row_index > 1:
