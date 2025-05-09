@@ -26,7 +26,7 @@ def main():
         'port': db_port
     }
     
-     # 2. Definir la nueva consulta SQL con fechas dinámicas
+    # 2. Definir la nueva consulta SQL con fechas dinámicas
     fecha_inicio_str = '2025-01-01'
     fecha_fin = datetime.now().date()
     fecha_fin_str = fecha_fin.strftime('%Y-%m-%d')
@@ -57,7 +57,7 @@ def main():
     END AS "COMUNIDAD",
     c.name AS "PAÍS",
     EXTRACT(MONTH FROM ai.date_invoice) AS "MES",
-	EXTRACT(DAY FROM ai.date_invoice) AS "DÍA",
+    EXTRACT(DAY FROM ai.date_invoice) AS "DÍA",
     CASE 
         WHEN ai.type = 'out_invoice' THEN 
             COALESCE(ai.portes, 0) + COALESCE(ai.portes_cubiertos, 0)
@@ -141,32 +141,30 @@ ORDER BY
     else:
         print(f"Se obtuvieron {len(resultados)} filas de la consulta.")
     
-    # 5. Cargar el archivo base Portes.xlsx que se encuentra en la raíz del repositorio
+    # 5. Cargar el archivo base Portes.xlsx
     try:
         book = load_workbook(file_path)
         sheet = book.active
+        existing_invoice_codes = {row[2] for row in sheet.iter_rows(min_row=2, values_only=True) if row[2] is not None}
     except FileNotFoundError:
         print(f"No se encontró el archivo base '{file_path}'. Se aborta para no perder el formato.")
         return
-    
-    # 6. Evitar duplicados (usando la tercera columna: "CODIGO FACTURA")
-    existing_invoice_codes = {row[2] for row in sheet.iter_rows(min_row=2, values_only=True) if row[2] is not None}
-    for row in resultados:
-    	if row[2] not in existing_invoice_codes:
-           sheet.append(row)
-           new_row_index = sheet.max_row
-           if new_row_index > 1:
-               for col in range(1, sheet.max_column + 1):
-	           source_cell = sheet.cell(row=new_row_index - 1, column=col)
-	           target_cell = sheet.cell(row=new_row_index, column=col)
-	           target_cell.font = copy.copy(source_cell.font)
-	           target_cell.fill = copy.copy(source_cell.fill)
-	           target_cell.border = copy.copy(source_cell.border)
-	           target_cell.alignment = copy.copy(source_cell.alignment)
 
+    # 6. Añadir nuevas filas sin duplicados
+    for row in resultados:
+        if row[2] not in existing_invoice_codes:
+            sheet.append(row)
+            new_row_index = sheet.max_row
+            if new_row_index > 1:
+                for col in range(1, sheet.max_column + 1):
+                    source_cell = sheet.cell(row=new_row_index - 1, column=col)
+                    target_cell = sheet.cell(row=new_row_index, column=col)
+                    target_cell.font = copy.copy(source_cell.font)
+                    target_cell.fill = copy.copy(source_cell.fill)
+                    target_cell.border = copy.copy(source_cell.border)
+                    target_cell.alignment = copy.copy(source_cell.alignment)
     
-    # 7. Actualizar la referencia de la tabla existente
-    # Asumimos que la tabla se llama "Portes"
+    # 7. Actualizar referencia de la tabla "Portes"
     if "Portes" in sheet.tables:
         tabla = sheet.tables["Portes"]
         max_row = sheet.max_row
@@ -178,6 +176,7 @@ ORDER BY
     else:
         print("No se encontró la tabla 'Portes'. Se conservará el formato actual, pero no se actualizará la referencia de la tabla.")
     
+    # 8. Guardar archivo
     book.save(file_path)
     print(f"Archivo guardado con la estructura de tabla en '{file_path}'.")
     
