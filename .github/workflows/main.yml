@@ -5,8 +5,11 @@ name: Ejecutar script y actualizar archivo en OneDrive
 
 on:
   schedule:
-    - cron: '0 */1 * * *'
-   # Se ejecuta cada hora (UTC)
+    - cron: '0 8 * * *'
+    - cron: '0 10 * * *'
+    - cron: '0 12 * * *'
+    - cron: '0 13 * * *'
+
   workflow_dispatch:
 
 jobs:
